@@ -193,8 +193,10 @@ RULES
 - One task per distinct assignment unless the user gives an existing task_id.
 - Never edit task/ or rough/ files directly; always use MCP tools.
 - set_plan and set_report replace their entire section — send complete updated content.
+- Keep making rough notes as you progress, specially before you toggle_todo.
 - Put final user-facing conclusions in set_report, not only in rough notes.
 - Toggle todos as work progresses, not all at once at the end.
+- Check all todos were completed and toggled before writing final report or responding user.
 ```
 
 ---
