@@ -1,0 +1,30 @@
+[project]
+name = "taskmanager"
+version = "0.1.0"
+description = "FastMCP HTTP server for agent task, plan, todo, report, and rough-note management"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=3.3.1",
+    "python-frontmatter>=1.1.0",
+    "pydantic-settings>=2.0.0",
+    "filelock>=3.13.0",
+]
+
+[project.scripts]
+taskmanager = "taskmanager.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["taskmanager"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
