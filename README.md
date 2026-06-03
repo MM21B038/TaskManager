@@ -7,6 +7,7 @@ HTTP-based [FastMCP](https://github.com/jlowin/fastmcp) server that persists age
 - **Task file** — YAML metadata plus `Plan`, `Todos`, and `Report` sections in a single document
 - **Rough notes** — append/update/delete delimited note blocks by stable `note_id`
 - **18 MCP tools** — full lifecycle from task creation through todos to final report
+- **Agent system prompt resource** — `taskmanager://agent-system-prompt` for copy-paste agent instructions
 - **File locking** — safe concurrent read/write on Windows and Unix
 
 ## Quick start
@@ -54,9 +55,19 @@ Add to `.cursor/mcp.json` or **Settings → MCP**:
 | Report | `set_report`, `get_report` |
 | Rough | `rough_add`, `rough_update`, `rough_delete`, `rough_get`, `rough_list`, `rough_clear` |
 
+## Agent system prompt
+
+The server exposes a read-only MCP resource for agent instructions:
+
+| URI | Source file |
+|-----|-------------|
+| `taskmanager://agent-system-prompt` | [`taskmanager/resources/agent-system-prompt.md`](taskmanager/resources/agent-system-prompt.md) |
+
+Read it from your MCP client (Resources panel) or open the markdown file directly. Copy into system instructions, a Cursor rule, or an agent harness prompt.
+
 ## How and when to use the MCP tools
 
-Use this section as an **operator guide** or paste the [system prompt block](#system-prompt-for-agents) into agent instructions.
+Use this section as an **operator guide**. For agent system instructions, read the MCP resource **`taskmanager://agent-system-prompt`** (source: [`taskmanager/resources/agent-system-prompt.md`](taskmanager/resources/agent-system-prompt.md)) or attach it in your client.
 
 ### Mental model
 
@@ -153,54 +164,6 @@ Always keep `task_id` from `create_task` for every later call. Todos are referen
 3. `rough_list` for scratch context.
 4. Continue toggling todos and updating rough/report as needed.
 
----
-
-## System prompt for agents
-
-Copy everything inside the block below into system instructions, a Cursor rule, or an agent harness prompt.
-
-```text
-You have access to the Task Manager MCP server. It stores work as markdown on disk.
-
-CONCEPTS
-- task_id: UUID returned by create_task. Required on every call after creation.
-- todo_id: Stable id on each checklist line (e.g. todo-a1b2c3d4). Use for toggle_todo.
-- note_id: Stable id on each rough note block (e.g. note-abc12345). Use for rough_update/delete.
-
-STORAGE
-- task/{task_id}.md — metadata, Plan, Todos (checkboxes), Report (final summary).
-- rough/{task_id}.md — scratch notes only; safe for messy or partial content.
-
-WHEN TO USE TOOLS
-- New user request → create_task(name, description). Keep task_id.
-- Strategy / steps → set_plan(task_id, full plan markdown).
-- Checklist → add_todos(task_id, items). Save returned todo_ids.
-- Investigation, logs, drafts → rough_add(task_id, content). Use rough_update/delete by note_id.
-- Step completed → toggle_todo(task_id, todo_id, completed=true). Re-fetch with get_todos if needed.
-- Work complete → set_report(task_id, full report markdown).
-- Need status only → get_task_metadata, get_plan, get_todos, or get_report (not get_task).
-- Full handoff or final review → get_task(task_id).
-- Continue old work → list_tasks, then get_task or partial getters.
-
-ORDER OF OPERATIONS
-1. create_task
-2. set_plan → add_todos
-3. Loop: rough_add / rough_update as needed; toggle_todo after each finished step
-4. set_report when done
-5. get_task optional before replying to user
-
-RULES
-- One task per distinct assignment unless the user gives an existing task_id.
-- Never edit task/ or rough/ files directly; always use MCP tools.
-- set_plan and set_report replace their entire section — send complete updated content.
-- Keep making rough notes as you progress, specially before you toggle_todo.
-- Put final user-facing conclusions in set_report, not only in rough notes.
-- Toggle todos as work progresses, not all at once at the end.
-- Check all todos were completed and toggled before writing final report or responding user.
-```
-
----
-
 ## File formats
 
 **Task** (`task/{uuid}.md`):
@@ -252,4 +215,4 @@ uv sync --group dev
 uv run pytest
 ```
 
-Project layout: `taskmanager/` (server, parsers, services, tools), `task/`, `rough/`, `tests/`.
+Project layout: `taskmanager/` (server, parsers, services, tools, resources), `task/`, `rough/`, `tests/`.

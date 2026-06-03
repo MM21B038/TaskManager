@@ -3,6 +3,7 @@
 from fastmcp import FastMCP
 
 from taskmanager.platform import server_lifespan
+from taskmanager.resources import register as register_resources
 from taskmanager.tools import register_all
 
 mcp = FastMCP(
@@ -16,3 +17,4 @@ mcp = FastMCP(
 )
 
 register_all(mcp)
+register_resources(mcp)
