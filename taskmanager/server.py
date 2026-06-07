@@ -9,9 +9,9 @@ from taskmanager.tools import register_all
 mcp = FastMCP(
     "Task Manager",
     instructions=(
-        "Manage agent tasks stored as markdown. Workflow: create_task → set_plan / "
-        "add_todos → rough_add for scratch notes → toggle_todo as work completes → "
-        "set_report for the final summary."
+        "Manage agent tasks stored as markdown. Use for substantive multi-step work only — "
+        "not trivial one-shot requests. Loop: Setup → work/rough/toggle → Finish. "
+        "See MCP prompt agent_system_prompt."
     ),
     lifespan=server_lifespan,
 )

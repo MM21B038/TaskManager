@@ -5,7 +5,7 @@ description = "FastMCP HTTP server for agent task, plan, todo, report, and rough
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "fastmcp>=3.3.1",
+    "fastmcp>=3.4.0",
     "python-frontmatter>=1.1.0",
     "pydantic-settings>=2.0.0",
     "filelock>=3.13.0",

@@ -7,7 +7,8 @@ HTTP-based [FastMCP](https://github.com/jlowin/fastmcp) server that persists age
 - **Task file** — YAML metadata plus `Plan`, `Todos`, and `Report` sections in a single document
 - **Rough notes** — append/update/delete delimited note blocks by stable `note_id`
 - **18 MCP tools** — full lifecycle from task creation through todos to final report
-- **Agent system prompt resource** — `taskmanager://agent-system-prompt` for copy-paste agent instructions
+- **Server info resource** — `taskmanager://server-info` (overview, tools, storage)
+- **Agent system prompt** — MCP **prompt** `agent_system_prompt`
 - **File locking** — safe concurrent read/write on Windows and Unix
 
 ## Quick start
@@ -55,19 +56,16 @@ Add to `.cursor/mcp.json` or **Settings → MCP**:
 | Report | `set_report`, `get_report` |
 | Rough | `rough_add`, `rough_update`, `rough_delete`, `rough_get`, `rough_list`, `rough_clear` |
 
-## Agent system prompt
+## MCP server info & agent prompt
 
-The server exposes a read-only MCP resource for agent instructions:
-
-| URI | Source file |
-|-----|-------------|
-| `taskmanager://agent-system-prompt` | [`taskmanager/resources/agent-system-prompt.md`](taskmanager/resources/agent-system-prompt.md) |
-
-Read it from your MCP client (Resources panel) or open the markdown file directly. Copy into system instructions, a Cursor rule, or an agent harness prompt.
+| Kind | Name / URI | Source | How to use |
+|------|------------|--------|------------|
+| **Resource** | `taskmanager://server-info` | [`server-info.md`](taskmanager/resources/server-info.md) | MCP **Resources** — server overview, tools, storage, env |
+| **Prompt** | `agent_system_prompt` | [`agent-system-prompt.md`](taskmanager/resources/agent-system-prompt.md) | MCP **Prompts** — agent workflow instructions |
 
 ## How and when to use the MCP tools
 
-Use this section as an **operator guide**. For agent system instructions, read the MCP resource **`taskmanager://agent-system-prompt`** (source: [`taskmanager/resources/agent-system-prompt.md`](taskmanager/resources/agent-system-prompt.md)) or attach it in your client.
+Use this section as an **operator guide**. For agent instructions, use MCP prompt **`agent_system_prompt`** (see above).
 
 ### Mental model
 
