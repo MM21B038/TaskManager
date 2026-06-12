@@ -4,15 +4,8 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any, TypeVar
 
-from fastmcp.exceptions import ToolError
-
-from taskmanager.exceptions import (
-    DuplicateNoteError,
-    NoteNotFoundError,
-    TaskManagerError,
-    TaskNotFoundError,
-    TodoNotFoundError,
-)
+from taskmanager.exceptions import TaskManagerError
+from taskmanager.models import ToolErrorResult
 from taskmanager.services.task_service import TaskService
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -32,15 +25,10 @@ def map_errors(func: F) -> F:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
             return func(*args, **kwargs)
-        except TaskNotFoundError as exc:
-            raise ToolError(str(exc)) from exc
-        except TodoNotFoundError as exc:
-            raise ToolError(str(exc)) from exc
-        except NoteNotFoundError as exc:
-            raise ToolError(str(exc)) from exc
-        except DuplicateNoteError as exc:
-            raise ToolError(str(exc)) from exc
         except TaskManagerError as exc:
-            raise ToolError(str(exc)) from exc
+            return ToolErrorResult(
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
 
     return wrapper  # type: ignore[return-value]

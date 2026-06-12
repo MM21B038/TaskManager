@@ -93,3 +93,8 @@ class NotesListResult(BaseModel):
 class RoughClearResult(BaseModel):
     task_id: str
     removed_count: int
+
+
+class ToolErrorResult(BaseModel):
+    error: str
+    error_type: str
