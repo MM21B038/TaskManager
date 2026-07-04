@@ -6,9 +6,10 @@ from filelock import FileLock
 
 from taskmanager.config import Settings
 from taskmanager.documents.rough_doc import RoughDocument
+from taskmanager.documents.table_doc import TableDocument
 from taskmanager.documents.task_doc import TaskDocument
 from taskmanager.exceptions import TaskNotFoundError
-from taskmanager.storage.paths import lock_path, rough_path, task_path
+from taskmanager.storage.paths import lock_path, rough_path, table_path, task_path
 
 
 class TaskRepository:
@@ -49,8 +50,20 @@ class TaskRepository:
             raise TaskNotFoundError(task_id)
         return RoughDocument.parse(self.read_text(path))
 
+    def read_table_doc(self, task_id: str) -> TableDocument:
+        self.assert_exists(task_id)
+        path = table_path(self._settings, task_id)
+        if not path.is_file():
+            raise TaskNotFoundError(task_id)
+        return TableDocument.parse(self.read_text(path))
+
     def write_rough_doc(self, task_id: str, doc: RoughDocument) -> Path:
         path = rough_path(self._settings, task_id)
+        self.write_text(path, doc.serialize())
+        return path
+
+    def write_table_doc(self, task_id: str, doc: TableDocument) -> Path:
+        path = table_path(self._settings, task_id)
         self.write_text(path, doc.serialize())
         return path
 
@@ -60,6 +73,7 @@ class TaskRepository:
         name: str,
         description: str,
         *,
+        mode: str = "todo",
         initial_plan: str = "",
         initial_todos: list[str] | None = None,
     ) -> tuple[Path, Path]:
@@ -69,6 +83,7 @@ class TaskRepository:
             task_id,
             name,
             description,
+            mode=mode,
             initial_plan=initial_plan,
             initial_todos=initial_todos,
         )
@@ -76,9 +91,17 @@ class TaskRepository:
         self.write_text(task_file, task_doc.serialize())
         try:
             self.write_text(rough_file, rough_doc.serialize())
+            if mode == "table":
+                table_file = table_path(self._settings, task_id)
+                self.write_text(table_file, TableDocument.create_new().serialize())
         except OSError:
             if task_file.is_file():
                 task_file.unlink(missing_ok=True)
+            if rough_file.is_file():
+                rough_file.unlink(missing_ok=True)
+            table_file = table_path(self._settings, task_id)
+            if table_file.is_file():
+                table_file.unlink(missing_ok=True)
             raise
         return task_file, rough_file
 

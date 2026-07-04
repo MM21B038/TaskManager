@@ -1,5 +1,7 @@
 """Task lifecycle MCP tools."""
 
+from typing import Literal
+
 from fastmcp import FastMCP
 from fastmcp.types import Textarea
 
@@ -12,6 +14,7 @@ def register(mcp: FastMCP) -> None:
     def create_task(
         name: str,
         description: str,
+        mode: Literal["todo", "table"] = "todo",
         initial_plan: Textarea = "",
         initial_todos: list[str] | None = None,
     ):
@@ -19,6 +22,7 @@ def register(mcp: FastMCP) -> None:
         return get_service().create_task(
             name,
             description,
+            mode=mode,
             initial_plan=initial_plan or "",
             initial_todos=initial_todos,
         )

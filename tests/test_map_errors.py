@@ -1,7 +1,7 @@
 import pytest
 
 from taskmanager.config import Settings
-from taskmanager.exceptions import TodoNotFoundError
+from taskmanager.exceptions import InvalidTaskModeError, TodoNotFoundError
 from taskmanager.models import ToolErrorResult
 from taskmanager.services.task_service import TaskService
 from taskmanager.tools._helpers import get_service, map_errors
@@ -53,3 +53,16 @@ def test_map_errors_passes_through_success(service):
     result = toggle(task_id, todo_id)
 
     assert result.completed is True
+
+
+def test_map_errors_invalid_task_mode(service):
+    created = service.create_task("T", "D", mode="table")
+
+    @map_errors
+    def add_todo(task_id: str):
+        return get_service().add_todos(task_id, ["Step"])
+
+    result = add_todo(created.task_id)
+
+    assert isinstance(result, ToolErrorResult)
+    assert result.error_type == "InvalidTaskModeError"

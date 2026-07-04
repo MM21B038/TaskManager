@@ -28,9 +28,14 @@ class Settings(BaseSettings):
     def rough_dir(self) -> Path:
         return self.data_dir / "rough"
 
+    @property
+    def table_dir(self) -> Path:
+        return self.data_dir / "table"
+
     def ensure_data_dirs(self) -> None:
         self.task_dir.mkdir(parents=True, exist_ok=True)
         self.rough_dir.mkdir(parents=True, exist_ok=True)
+        self.table_dir.mkdir(parents=True, exist_ok=True)
 
 
 settings = Settings()

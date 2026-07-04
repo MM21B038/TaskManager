@@ -10,8 +10,8 @@ mcp = FastMCP(
     "Task Manager",
     instructions=(
         "Manage agent tasks stored as markdown. Use for substantive multi-step work only — "
-        "not trivial one-shot requests. Loop: Setup → work/rough/toggle → Finish. "
-        "See MCP prompt agent_system_prompt."
+        "not trivial one-shot requests. Supports todo checklist mode and table matrix mode. "
+        "Loop: Setup → work/rough/progress → Finish. See MCP prompt agent_system_prompt."
     ),
     lifespan=server_lifespan,
 )

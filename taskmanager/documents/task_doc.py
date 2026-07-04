@@ -36,6 +36,7 @@ class TaskDocument:
         name: str,
         description: str,
         *,
+        mode: str = "todo",
         initial_plan: str = "",
         initial_todos: list[str] | None = None,
     ) -> TaskDocument:
@@ -45,6 +46,7 @@ class TaskDocument:
                 "id": task_id,
                 "name": name,
                 "description": description,
+                "mode": mode,
                 "status": "active",
                 "created_at": now,
                 "updated_at": now,

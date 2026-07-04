@@ -1,6 +1,6 @@
 [project]
 name = "taskmanager"
-version = "0.1.0"
+version = "0.2.0"
 description = "FastMCP HTTP server for agent task, plan, todo, report, and rough-note management"
 readme = "README.md"
 requires-python = ">=3.11"
