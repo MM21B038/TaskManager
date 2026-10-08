@@ -24,14 +24,14 @@ Base directory is `TASK_MANAGER_DATA_DIR` (defaults to project root). Do not edi
 | `TASK_MANAGER_HOST` | `127.0.0.1` | Bind host |
 | `TASK_MANAGER_PORT` | `8000` | Bind port |
 
-## Tools (24)
+## Tools (31)
 
 | Category | Tools |
 |----------|-------|
 | Tasks | `create_task`, `get_task`, `get_task_metadata`, `list_tasks` |
 | Plan | `set_plan`, `get_plan` |
 | Todos | `add_todos`, `toggle_todo`, `update_todo`, `remove_todo`, `get_todos` |
-| Tables | `table_create`, `table_list`, `table_get`, `table_add_rows`, `table_add_columns`, `table_set_cells` |
+| Tables | `table_create`, `table_list`, `table_get`, `table_add_rows`, `table_add_columns`, `table_set_cells`, `table_delete`, `table_remove_rows`, `table_remove_columns`, `table_rename`, `table_rename_row`, `table_rename_column` |
 | Report | `set_report`, `get_report` |
 | Rough | `rough_add`, `rough_update`, `rough_delete`, `rough_get`, `rough_list`, `rough_clear` |
 
@@ -49,11 +49,11 @@ Todo mode        create_task(mode=todo) → set_plan → add_todos → work/roug
 Table mode       create_task(mode=table) → set_plan → table_create → work/rough/table_set_cells → set_report
 ```
 
-Full agent instructions: MCP **prompt** `agent_system_prompt` (see below).
+Full agent instructions: MCP **prompt** `agent_system_prompt` and resource `taskmanager://agent-system-prompt`.
 
 ## MCP prompt
 
-Agent instructions are exposed as MCP **prompt** `agent_system_prompt` (not this resource). Use the Prompts panel in your client, or read `taskmanager/resources/agent-system-prompt.md` in the repo.
+Agent instructions are exposed as MCP **prompt** `agent_system_prompt` and as resource `taskmanager://agent-system-prompt` (the same markdown). Use the Prompts panel, read that resource, or open `taskmanager/resources/agent-system-prompt.md` in the repo.
 
 ## Package
 

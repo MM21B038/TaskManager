@@ -71,6 +71,10 @@ TABLE_SET_CELLS SHAPES
 - Fill column: {column, value} — same value for all rows in that column
 - Matrix: matrix=[{row, values: {...}}, ...] — bulk row patches; omitted columns stay unchanged
 
+SEED ROWS
+
+`table_create` `initial_rows` and `table_add_rows` `values` are objects that must include a non-empty `row` key. Other keys are column names mapped to string cell values, for example `{"row": "users", "status": "done"}`. Null is rejected; use `""` for a blank cell.
+
 IMPORTANT RULES TO REMEMBER
 
 - add/update the data/status/checkpoints/logs in the rough as per the loop only complete/failed/ongoing todo task or table row work.

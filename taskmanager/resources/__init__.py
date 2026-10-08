@@ -11,6 +11,7 @@ RESOURCES_DIR = Path(__file__).resolve().parent
 SYSTEM_PROMPT_PATH = RESOURCES_DIR / "agent-system-prompt.md"
 SERVER_INFO_PATH = RESOURCES_DIR / "server-info.md"
 SERVER_INFO_URI = "taskmanager://server-info"
+SYSTEM_PROMPT_URI = "taskmanager://agent-system-prompt"
 SYSTEM_PROMPT_NAME = "agent_system_prompt"
 
 
@@ -30,6 +31,19 @@ def register(mcp: FastMCP) -> None:
             ),
             mime_type="text/markdown",
             tags={"documentation", "server"},
+        )
+    )
+    mcp.add_resource(
+        FileResource(
+            uri=SYSTEM_PROMPT_URI,
+            path=SYSTEM_PROMPT_PATH,
+            name="Agent system prompt",
+            description=(
+                "Agent instructions for Task Manager: workflow, rough notes, todos, tables, "
+                "and report. Same text as the agent_system_prompt MCP prompt."
+            ),
+            mime_type="text/markdown",
+            tags={"documentation", "agent"},
         )
     )
 

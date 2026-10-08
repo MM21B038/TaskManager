@@ -2,7 +2,12 @@
 
 import asyncio
 
-from taskmanager.resources import SERVER_INFO_PATH, SERVER_INFO_URI, SYSTEM_PROMPT_PATH
+from taskmanager.resources import (
+    SERVER_INFO_PATH,
+    SERVER_INFO_URI,
+    SYSTEM_PROMPT_PATH,
+    SYSTEM_PROMPT_URI,
+)
 from taskmanager.server import mcp
 
 
@@ -22,7 +27,7 @@ def test_server_info_and_agent_prompt_registered():
         resources = await mcp.list_resources()
         uris = {str(r.uri) for r in resources}
         assert SERVER_INFO_URI in uris
-        assert "taskmanager://agent-system-prompt" not in uris
+        assert SYSTEM_PROMPT_URI in uris
 
         result = await mcp.render_prompt("agent_system_prompt", {})
         text = "".join(

@@ -80,12 +80,10 @@ class TaskDocument:
                     body = body[first_nl + 1 :].strip()
 
             if body:
-                header_re = re.compile(r"^## (.+)$", re.MULTILINE)
+                header_re = re.compile(r"^## (Plan|Todos|Report)\s*$", re.MULTILINE)
                 matches = list(header_re.finditer(body))
                 for i, match in enumerate(matches):
                     name_part = match.group(1).strip()
-                    if name_part not in sections:
-                        continue
                     start = match.end()
                     end = matches[i + 1].start() if i + 1 < len(matches) else len(body)
                     sections[name_part] = body[start:end].strip()

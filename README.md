@@ -7,7 +7,7 @@ HTTP-based [FastMCP](https://github.com/jlowin/fastmcp) server that persists age
 - **Task file** — YAML metadata plus `Plan`, `Todos`, and `Report` sections in a single document
 - **Table mode** — matrix-style tracking with multiple named tables per task (v0.2.0)
 - **Rough notes** — append/update/delete delimited note blocks by stable `note_id`
-- **24 MCP tools** — full lifecycle from task creation through todos or tables to final report
+- **31 MCP tools** — full lifecycle from task creation through todos or tables to final report
 - **Server info resource** — `taskmanager://server-info` (overview, tools, storage)
 - **Agent system prompt** — MCP **prompt** `agent_system_prompt`
 - **File locking** — safe concurrent read/write on Windows and Unix
@@ -54,7 +54,7 @@ Add to `.cursor/mcp.json` or **Settings → MCP**:
 | Tasks | `create_task`, `get_task`, `get_task_metadata`, `list_tasks` |
 | Plan | `set_plan`, `get_plan` |
 | Todos | `add_todos`, `toggle_todo`, `update_todo`, `remove_todo`, `get_todos` |
-| Tables | `table_create`, `table_list`, `table_get`, `table_add_rows`, `table_add_columns`, `table_set_cells` |
+| Tables | `table_create`, `table_list`, `table_get`, `table_add_rows`, `table_add_columns`, `table_set_cells`, `table_delete`, `table_remove_rows`, `table_remove_columns`, `table_rename`, `table_rename_row`, `table_rename_column` |
 | Report | `set_report`, `get_report` |
 | Rough | `rough_add`, `rough_update`, `rough_delete`, `rough_get`, `rough_list`, `rough_clear` |
 
@@ -70,6 +70,7 @@ Add to `.cursor/mcp.json` or **Settings → MCP**:
 | Kind | Name / URI | Source | How to use |
 |------|------------|--------|------------|
 | **Resource** | `taskmanager://server-info` | [`server-info.md`](taskmanager/resources/server-info.md) | MCP **Resources** — server overview, tools, storage, env |
+| **Resource** | `taskmanager://agent-system-prompt` | [`agent-system-prompt.md`](taskmanager/resources/agent-system-prompt.md) | MCP **Resources** — same agent workflow instructions |
 | **Prompt** | `agent_system_prompt` | [`agent-system-prompt.md`](taskmanager/resources/agent-system-prompt.md) | MCP **Prompts** — agent workflow instructions |
 
 ## How and when to use the MCP tools
@@ -103,10 +104,13 @@ Always keep `task_id` from `create_task` for every later call. Todos use `todo_i
 |------|-------------|
 | `table_create` | Define a named table with columns, optional rows, and default cell value |
 | `table_list` | See all tables in a task without loading full matrices |
-| `table_get` | Read a table; slice by `rows` / `columns` to save tokens |
+| `table_get` | Read a table; slice by `rows` / `columns` to save tokens. A slice also filters the returned `rows` and `columns` lists |
 | `table_add_rows` | Add row keys and fill with defaults or per-row seed values |
 | `table_add_columns` | Add columns and fill existing rows with defaults |
-| `table_set_cells` | Update values via sparse `updates` or bulk `matrix` patches |
+| `table_set_cells` | Update values via sparse `updates` or bulk `matrix` patches. `updated_count` is cells written; `op_count` is update items or matrix rows |
+| `table_delete` | Remove a whole table |
+| `table_remove_rows` / `table_remove_columns` | Drop row keys or columns and their cells |
+| `table_rename` / `table_rename_row` / `table_rename_column` | Rename the table, a row key, or a column without reordering the rest |
 
 **`table_set_cells` update shapes:**
 
@@ -118,6 +122,8 @@ Always keep `task_id` from `create_task` for every later call. Todos use `todo_i
 | Fill column | `column`, `value` | Same value for all rows in the column |
 
 `matrix` accepts a list of `{row, values}` objects; omitted columns in each row stay unchanged.
+
+`table_create.initial_rows` and `table_add_rows.values` use the same flat object shape: a required `row` key plus column names, for example `{"row": "users", "status": "done"}`. Cell values are strings. `null` is rejected; `""` stores a blank cell.
 
 ### Recommended workflow (todo mode)
 

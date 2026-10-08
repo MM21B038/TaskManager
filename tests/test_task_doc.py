@@ -43,3 +43,17 @@ def test_report_section():
     assert doc.get_report() == "Done."
     text = doc.serialize()
     assert "Done." in TaskDocument.parse(text).get_report()
+
+
+def test_nested_headings_stay_in_section():
+    plan = "## Test plan\n\nDo the thing"
+    report = "## Findings\n\nAll green"
+    doc = TaskDocument.create_new("id-1", "T", "D", initial_plan=plan)
+    loaded = TaskDocument.parse(doc.serialize())
+    assert loaded.get_plan() == plan
+
+    doc.set_plan(plan)
+    doc.set_report(report)
+    loaded = TaskDocument.parse(doc.serialize())
+    assert loaded.get_plan() == plan
+    assert loaded.get_report() == report

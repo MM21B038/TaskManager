@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     data_dir: Path = Field(default=_PROJECT_ROOT)
     host: str = "127.0.0.1"
-    port: int = 8000
+    port: int = 8008
 
     @property
     def task_dir(self) -> Path:

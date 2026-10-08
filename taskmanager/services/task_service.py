@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Literal
 
@@ -34,11 +35,17 @@ from taskmanager.models import (
     RoughClearResult,
     RowMatrix,
     TableCellsUpdated,
+    TableColumnRenamed,
     TableColumnsAdded,
+    TableColumnsRemoved,
     TableCreated,
+    TableDeleted,
     TableDetail,
     TableListResult,
+    TableRenamed,
+    TableRowRenamed,
     TableRowsAdded,
+    TableRowsRemoved,
     TableSummary,
     TaskCreated,
     TaskDetail,
@@ -228,11 +235,10 @@ class TaskService:
                 initial_rows=initial_rows,
             )
         except ValueError as exc:
-            message = str(exc)
-            if message == name.strip():
-                raise DuplicateTableNameError(task_id, name.strip()) from exc
-            raise _translate_table_value_error(task_id, table_id="", message=message) from exc
-        self._repo.write_table_doc(task_id, table_doc)
+            raise _translate_table_value_error(
+                task_id, table_id="", message=str(exc)
+            ) from exc
+        self._persist_table(task_id, doc, table_doc)
         return TableCreated(
             task_id=task_id,
             table_id=table_id,
@@ -283,8 +289,8 @@ class TaskService:
             task_id=task_id,
             table_id=table_id,
             name=table.name,
-            columns=table.columns,
-            rows=table.rows,
+            columns=list(columns) if columns is not None else list(table.columns),
+            rows=list(rows) if rows is not None else list(table.rows),
             default=table.default,
             cells=cells,
         )
@@ -312,7 +318,7 @@ class TaskService:
             raise _translate_table_value_error(
                 task_id, table_id=table_id, message=str(exc)
             ) from exc
-        self._repo.write_table_doc(task_id, table_doc)
+        self._persist_table(task_id, doc, table_doc)
         return TableRowsAdded(
             task_id=task_id,
             table_id=table_id,
@@ -341,7 +347,7 @@ class TaskService:
             raise _translate_table_value_error(
                 task_id, table_id=table_id, message=str(exc)
             ) from exc
-        self._repo.write_table_doc(task_id, table_doc)
+        self._persist_table(task_id, doc, table_doc)
         return TableColumnsAdded(
             task_id=task_id,
             table_id=table_id,
@@ -360,22 +366,133 @@ class TaskService:
         doc = self._repo.read_task_doc(task_id)
         _require_mode(doc, task_id, expected="table")
         table_doc = self._repo.read_table_doc(task_id)
+        update_payload = [update.model_dump(exclude_none=True) for update in (updates or [])]
+        matrix_payload = (
+            [row.model_dump() for row in matrix] if matrix is not None else None
+        )
         try:
-            table_doc.apply_updates(
+            updated_count = table_doc.apply_updates(
                 table_id,
-                updates=[update.model_dump(exclude_none=True) for update in (updates or [])],
-                matrix=[row.model_dump() for row in (matrix or [])] if matrix is not None else None,
+                updates=update_payload,
+                matrix=matrix_payload,
             )
         except ValueError as exc:
             raise _translate_table_value_error(
                 task_id, table_id=table_id, message=str(exc)
             ) from exc
-        self._repo.write_table_doc(task_id, table_doc)
-        updated_count = len(updates or []) if matrix is None else len(matrix or [])
+        self._persist_table(task_id, doc, table_doc)
+        op_count = len(matrix) if matrix is not None else len(updates or [])
         return TableCellsUpdated(
             task_id=task_id,
             table_id=table_id,
             updated_count=updated_count,
+            op_count=op_count,
+        )
+
+    def table_delete(self, task_id: str, table_id: str) -> TableDeleted:
+        doc = self._repo.read_task_doc(task_id)
+        _require_mode(doc, task_id, expected="table")
+        table_doc = self._repo.read_table_doc(task_id)
+        try:
+            table_doc.delete_table(table_id)
+        except ValueError as exc:
+            raise _translate_table_value_error(
+                task_id, table_id=table_id, message=str(exc)
+            ) from exc
+        self._persist_table(task_id, doc, table_doc)
+        return TableDeleted(task_id=task_id, table_id=table_id)
+
+    def table_remove_rows(
+        self, task_id: str, table_id: str, rows: list[str]
+    ) -> TableRowsRemoved:
+        doc = self._repo.read_task_doc(task_id)
+        _require_mode(doc, task_id, expected="table")
+        table_doc = self._repo.read_table_doc(task_id)
+        try:
+            table = table_doc.remove_rows(table_id, rows)
+        except ValueError as exc:
+            raise _translate_table_value_error(
+                task_id, table_id=table_id, message=str(exc)
+            ) from exc
+        self._persist_table(task_id, doc, table_doc)
+        return TableRowsRemoved(
+            task_id=task_id,
+            table_id=table_id,
+            rows=table.rows,
+            row_count=len(table.rows),
+        )
+
+    def table_remove_columns(
+        self, task_id: str, table_id: str, columns: list[str]
+    ) -> TableColumnsRemoved:
+        doc = self._repo.read_task_doc(task_id)
+        _require_mode(doc, task_id, expected="table")
+        table_doc = self._repo.read_table_doc(task_id)
+        try:
+            table = table_doc.remove_columns(table_id, columns)
+        except ValueError as exc:
+            raise _translate_table_value_error(
+                task_id, table_id=table_id, message=str(exc)
+            ) from exc
+        self._persist_table(task_id, doc, table_doc)
+        return TableColumnsRemoved(
+            task_id=task_id,
+            table_id=table_id,
+            columns=table.columns,
+            column_count=len(table.columns),
+        )
+
+    def table_rename(self, task_id: str, table_id: str, name: str) -> TableRenamed:
+        doc = self._repo.read_task_doc(task_id)
+        _require_mode(doc, task_id, expected="table")
+        table_doc = self._repo.read_table_doc(task_id)
+        try:
+            table = table_doc.rename_table(table_id, name)
+        except ValueError as exc:
+            raise _translate_table_value_error(
+                task_id, table_id=table_id, message=str(exc)
+            ) from exc
+        self._persist_table(task_id, doc, table_doc)
+        return TableRenamed(task_id=task_id, table_id=table_id, name=table.name)
+
+    def table_rename_row(
+        self, task_id: str, table_id: str, row: str, new_row: str
+    ) -> TableRowRenamed:
+        doc = self._repo.read_task_doc(task_id)
+        _require_mode(doc, task_id, expected="table")
+        table_doc = self._repo.read_table_doc(task_id)
+        try:
+            table = table_doc.rename_row(table_id, row, new_row)
+        except ValueError as exc:
+            raise _translate_table_value_error(
+                task_id, table_id=table_id, message=str(exc)
+            ) from exc
+        self._persist_table(task_id, doc, table_doc)
+        return TableRowRenamed(
+            task_id=task_id,
+            table_id=table_id,
+            row=new_row.strip(),
+            rows=table.rows,
+        )
+
+    def table_rename_column(
+        self, task_id: str, table_id: str, column: str, new_column: str
+    ) -> TableColumnRenamed:
+        doc = self._repo.read_task_doc(task_id)
+        _require_mode(doc, task_id, expected="table")
+        table_doc = self._repo.read_table_doc(task_id)
+        try:
+            table = table_doc.rename_column(table_id, column, new_column)
+        except ValueError as exc:
+            raise _translate_table_value_error(
+                task_id, table_id=table_id, message=str(exc)
+            ) from exc
+        self._persist_table(task_id, doc, table_doc)
+        return TableColumnRenamed(
+            task_id=task_id,
+            table_id=table_id,
+            column=new_column.strip(),
+            columns=table.columns,
         )
 
     def rough_add(
@@ -432,6 +549,10 @@ class TaskService:
         removed = doc.clear_notes()
         self._repo.write_rough_doc(task_id, doc)
         return RoughClearResult(task_id=task_id, removed_count=removed)
+
+    def _persist_table(self, task_id: str, doc: TaskDocument, table_doc: TableDocument) -> None:
+        self._repo.write_table_doc(task_id, table_doc)
+        self._repo.write_task_doc(task_id, doc)
 
 
 def _task_mode(doc: TaskDocument) -> TaskMode:
@@ -490,4 +611,30 @@ def _translate_table_value_error(task_id: str, *, table_id: str, message: str) -
         return RowNotFoundError(task_id, table_id, message.removeprefix("unknown-row:"))
     if message.startswith("unknown-column:"):
         return ColumnNotFoundError(task_id, table_id, message.removeprefix("unknown-column:"))
+    if message.startswith("duplicate-table:"):
+        name = _coded_parts(message, "duplicate-table:")[0]
+        return DuplicateTableNameError(task_id, name)
+    if message.startswith("duplicate-row:"):
+        table_name, row = _coded_parts(message, "duplicate-row:")
+        return InvalidTableUpdateError(
+            f"Row '{row}' already exists in table '{table_name}'"
+        )
+    if message.startswith("duplicate-column:"):
+        table_name, column = _coded_parts(message, "duplicate-column:")
+        return InvalidTableUpdateError(
+            f"Column '{column}' already exists in table '{table_name}'"
+        )
+    if message.startswith("duplicated-row:"):
+        row = _coded_parts(message, "duplicated-row:")[0]
+        return InvalidTableUpdateError(f"Row '{row}' is duplicated")
+    if message.startswith("duplicated-column:"):
+        column = _coded_parts(message, "duplicated-column:")[0]
+        return InvalidTableUpdateError(f"Column '{column}' is duplicated")
     return InvalidTableUpdateError(message)
+
+
+def _coded_parts(message: str, prefix: str) -> list[str]:
+    data = json.loads(message.removeprefix(prefix))
+    if not isinstance(data, list) or not all(isinstance(item, str) for item in data):
+        raise ValueError(message)
+    return data

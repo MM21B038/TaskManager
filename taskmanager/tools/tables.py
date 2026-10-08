@@ -2,7 +2,7 @@
 
 from fastmcp import FastMCP
 
-from taskmanager.models import CellUpdate, RowMatrix
+from taskmanager.models import CellUpdate, RowMatrix, SeedRow
 from taskmanager.tools._helpers import get_service, map_errors
 
 
@@ -15,16 +15,20 @@ def register(mcp: FastMCP) -> None:
         columns: list[str],
         rows: list[str] | None = None,
         default_value: str = "",
-        initial_rows: list[dict[str, str]] | None = None,
+        initial_rows: list[SeedRow] | None = None,
     ):
-        """Create a named table with columns, optional rows, and optional seed cell values."""
+        """Create a named table with columns, optional rows, and optional seed cell values.
+
+        Each initial_rows item must include a non-empty row key. Every other key is a column
+        name mapped to a string cell value, for example {"row": "users", "status": "done"}.
+        """
         return get_service().table_create(
             task_id,
             name,
             columns,
             rows=rows,
             default_value=default_value,
-            initial_rows=initial_rows,
+            initial_rows=[row.model_dump() for row in initial_rows] if initial_rows else None,
         )
 
     @mcp.tool()
@@ -42,7 +46,12 @@ def register(mcp: FastMCP) -> None:
         columns: list[str] | None = None,
         resolved: bool = True,
     ):
-        """Get a table, optionally sliced by rows/columns. resolved=true fills missing cells with defaults."""
+        """Get a table, optionally sliced by rows and columns.
+
+        When rows or columns is provided, those response lists match the slice in request
+        order. Omitting a filter returns the full axis. resolved=true fills missing cells
+        with the table default.
+        """
         return get_service().table_get(
             task_id,
             table_id,
@@ -58,15 +67,19 @@ def register(mcp: FastMCP) -> None:
         table_id: str,
         rows: list[str],
         default_value: str | None = None,
-        values: list[dict[str, str]] | None = None,
+        values: list[SeedRow] | None = None,
     ):
-        """Add rows to a table, optionally seeding per-row cell values."""
+        """Add rows to a table, optionally seeding per-row cell values.
+
+        Each values item must include a non-empty row key for a row being added or already
+        present. Other keys are column names mapped to string cell values.
+        """
         return get_service().table_add_rows(
             task_id,
             table_id,
             rows,
             default_value=default_value,
-            values=values,
+            values=[row.model_dump() for row in values] if values else None,
         )
 
     @mcp.tool()
@@ -93,10 +106,55 @@ def register(mcp: FastMCP) -> None:
         updates: list[CellUpdate] | None = None,
         matrix: list[RowMatrix] | None = None,
     ):
-        """Update table cell values via sparse updates or a row matrix. Provide updates or matrix, not both."""
+        """Update table cell values via sparse updates or a row matrix.
+
+        Provide updates or matrix, not both, and not an empty list.
+        Update shapes: single cell {row, column, value}; partial row {row, values};
+        fill row {row, value}; fill column {column, value}.
+        Matrix items require row plus values (column name to string). Omitted columns stay
+        unchanged. value must be a string; null is rejected. An empty string stores a blank cell.
+        updated_count is the number of cells written. op_count is the number of update items
+        or matrix rows.
+        """
         return get_service().table_set_cells(
             task_id,
             table_id,
             updates=updates,
             matrix=matrix,
         )
+
+    @mcp.tool()
+    @map_errors
+    def table_delete(task_id: str, table_id: str):
+        """Delete one table from a table-mode task."""
+        return get_service().table_delete(task_id, table_id)
+
+    @mcp.tool()
+    @map_errors
+    def table_remove_rows(task_id: str, table_id: str, rows: list[str]):
+        """Remove row keys and their cells from a table."""
+        return get_service().table_remove_rows(task_id, table_id, rows)
+
+    @mcp.tool()
+    @map_errors
+    def table_remove_columns(task_id: str, table_id: str, columns: list[str]):
+        """Remove columns and their cells from a table."""
+        return get_service().table_remove_columns(task_id, table_id, columns)
+
+    @mcp.tool()
+    @map_errors
+    def table_rename(task_id: str, table_id: str, name: str):
+        """Rename a table. Row keys, column names, and cells stay unchanged."""
+        return get_service().table_rename(task_id, table_id, name)
+
+    @mcp.tool()
+    @map_errors
+    def table_rename_row(task_id: str, table_id: str, row: str, new_row: str):
+        """Rename a row key, preserving its position and cell values."""
+        return get_service().table_rename_row(task_id, table_id, row, new_row)
+
+    @mcp.tool()
+    @map_errors
+    def table_rename_column(task_id: str, table_id: str, column: str, new_column: str):
+        """Rename a column, preserving its position and cell values."""
+        return get_service().table_rename_column(task_id, table_id, column, new_column)

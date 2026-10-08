@@ -76,8 +76,10 @@ class TableDocument:
         initial_rows: list[dict[str, str]] | None = None,
     ) -> tuple[str, TableData]:
         normalized_name = name.strip()
+        if not normalized_name:
+            raise ValueError("table name must be a non-empty string")
         if any(table.name == normalized_name for table in self.tables.values()):
-            raise ValueError(normalized_name)
+            raise _coded_error("duplicate-table", normalized_name)
 
         table_id = _new_table_id()
         table = TableData(
@@ -99,7 +101,7 @@ class TableDocument:
                 if row_key not in table.rows:
                     table.rows.append(row_key)
                     table.cells.setdefault(row_key, {})
-                self._apply_row_values(table, row_key, row_data, default_value=None)
+                self._apply_row_values(table, row_key, row_data)
 
         self.tables[table_id] = table
         return table_id, table
@@ -123,7 +125,7 @@ class TableDocument:
                     raise ValueError("values entries must include a non-empty 'row' key")
                 if row_key not in table.rows:
                     raise ValueError(f"unknown-row:{row_key}")
-                self._apply_row_values(table, row_key, row_data, default_value=None)
+                self._apply_row_values(table, row_key, row_data)
 
         return table
 
@@ -138,11 +140,78 @@ class TableDocument:
         fill = table.default if default_value is None else default_value
         for column in _normalize_columns(columns):
             if column in table.columns:
-                raise ValueError(column)
+                raise _coded_error("duplicate-column", table.name, column)
             table.columns.append(column)
             for row_key in table.rows:
                 row_cells = table.cells.setdefault(row_key, {})
                 row_cells.setdefault(column, fill)
+        return table
+
+    def delete_table(self, table_id: str) -> None:
+        if table_id not in self.tables:
+            raise ValueError(f"unknown-table:{table_id}")
+        del self.tables[table_id]
+
+    def remove_rows(self, table_id: str, rows: list[str]) -> TableData:
+        table = self.get_table(table_id)
+        names = _unique_existing_keys(rows, existing=table.rows, kind="row")
+        for name in names:
+            table.rows.remove(name)
+            table.cells.pop(name, None)
+        return table
+
+    def remove_columns(self, table_id: str, columns: list[str]) -> TableData:
+        table = self.get_table(table_id)
+        names = _unique_existing_keys(columns, existing=table.columns, kind="column")
+        for name in names:
+            table.columns.remove(name)
+            for row_cells in table.cells.values():
+                row_cells.pop(name, None)
+        return table
+
+    def rename_table(self, table_id: str, name: str) -> TableData:
+        table = self.get_table(table_id)
+        normalized = name.strip()
+        if not normalized:
+            raise ValueError("table name must be a non-empty string")
+        if any(
+            other.name == normalized and other_id != table_id
+            for other_id, other in self.tables.items()
+        ):
+            raise _coded_error("duplicate-table", normalized)
+        table.name = normalized
+        return table
+
+    def rename_row(self, table_id: str, row: str, new_row: str) -> TableData:
+        table = self.get_table(table_id)
+        if row not in table.rows:
+            raise ValueError(f"unknown-row:{row}")
+        normalized = new_row.strip()
+        if not normalized:
+            raise ValueError("row keys must be non-empty strings")
+        if normalized != row and normalized in table.rows:
+            raise _coded_error("duplicate-row", table.name, normalized)
+        index = table.rows.index(row)
+        table.rows[index] = normalized
+        table.cells[normalized] = table.cells.pop(row, {})
+        return table
+
+    def rename_column(self, table_id: str, column: str, new_column: str) -> TableData:
+        table = self.get_table(table_id)
+        if column not in table.columns:
+            raise ValueError(f"unknown-column:{column}")
+        normalized = new_column.strip()
+        if not normalized:
+            raise ValueError("column names must be non-empty strings")
+        if normalized != column and normalized in table.columns:
+            raise _coded_error("duplicate-column", table.name, normalized)
+        index = table.columns.index(column)
+        table.columns[index] = normalized
+        for row_key, row_cells in list(table.cells.items()):
+            rebuilt: dict[str, str] = {}
+            for key, raw_value in row_cells.items():
+                rebuilt[normalized if key == column else key] = raw_value
+            table.cells[row_key] = rebuilt
         return table
 
     def apply_updates(
@@ -150,13 +219,14 @@ class TableDocument:
         table_id: str,
         updates: list[dict[str, Any]] | None = None,
         matrix: list[dict[str, Any]] | None = None,
-    ) -> TableData:
+    ) -> int:
         table = self.get_table(table_id)
 
         if updates and matrix:
             raise ValueError("Provide either updates or matrix, not both")
 
-        if matrix is not None:
+        if matrix:
+            written = 0
             for row_data in matrix:
                 row_key = str(row_data.get("row", "")).strip()
                 if not row_key:
@@ -166,13 +236,16 @@ class TableDocument:
                 values = row_data.get("values")
                 if not isinstance(values, dict):
                     raise ValueError("matrix entries must include a 'values' object")
-                self._apply_row_values(table, row_key, values, default_value=None)
-            return table
+                written += self._apply_row_values(table, row_key, values)
+            return written
 
-        for update in updates or []:
-            self._apply_update(table, update)
+        if updates:
+            written = 0
+            for update in updates:
+                written += self._apply_update(table, update)
+            return written
 
-        return table
+        raise ValueError(_EMPTY_SET_CELLS)
 
     def resolve_cells(
         self,
@@ -210,51 +283,60 @@ class TableDocument:
         *,
         default_value: str,
     ) -> None:
+        seen: set[str] = set()
         for row_key in rows:
             normalized = row_key.strip()
             if not normalized:
                 raise ValueError("row keys must be non-empty strings")
+            if normalized in seen:
+                raise _coded_error("duplicated-row", normalized)
+            seen.add(normalized)
             if normalized in table.rows:
-                raise ValueError(normalized)
+                raise _coded_error("duplicate-row", table.name, normalized)
             table.rows.append(normalized)
             table.cells[normalized] = {
                 column: default_value for column in table.columns
             }
 
-    def _apply_update(self, table: TableData, update: dict[str, Any]) -> None:
+    def _apply_update(self, table: TableData, update: dict[str, Any]) -> int:
         row = update.get("row")
         column = update.get("column")
+        has_value = "value" in update
         value = update.get("value")
         values = update.get("values")
 
-        if row is not None and column is not None and value is not None and values is None:
-            self._set_cell(table, str(row), str(column), str(value))
-            return
+        if has_value and not isinstance(value, str):
+            raise ValueError(_NULL_VALUE_ERROR)
+        if isinstance(values, dict) and any(not isinstance(raw, str) for raw in values.values()):
+            raise ValueError(_NULL_VALUE_ERROR)
 
-        if row is not None and values is not None and column is None and value is None:
+        if row is not None and column is not None and has_value and values is None:
+            self._set_cell(table, str(row), str(column), str(value))
+            return 1
+
+        if row is not None and values is not None and column is None and not has_value:
             row_key = str(row)
             if row_key not in table.rows:
                 raise ValueError(f"unknown-row:{row_key}")
             if not isinstance(values, dict):
                 raise ValueError("values must be an object")
-            self._apply_row_values(table, row_key, values, default_value=None)
-            return
+            return self._apply_row_values(table, row_key, values)
 
-        if row is not None and value is not None and column is None and values is None:
+        if row is not None and has_value and column is None and values is None:
             row_key = str(row)
             if row_key not in table.rows:
                 raise ValueError(f"unknown-row:{row_key}")
             for column_name in table.columns:
                 self._set_cell(table, row_key, column_name, str(value))
-            return
+            return len(table.columns)
 
-        if column is not None and value is not None and row is None and values is None:
+        if column is not None and has_value and row is None and values is None:
             column_name = str(column)
             if column_name not in table.columns:
                 raise ValueError(f"unknown-column:{column_name}")
             for row_key in table.rows:
                 self._set_cell(table, row_key, column_name, str(value))
-            return
+            return len(table.rows)
 
         raise ValueError("Invalid update item")
 
@@ -263,18 +345,19 @@ class TableDocument:
         table: TableData,
         row_key: str,
         values: dict[str, Any],
-        *,
-        default_value: str | None,
-    ) -> None:
+    ) -> int:
         row_cells = table.cells.setdefault(row_key, {})
+        written = 0
         for key, raw_value in values.items():
             if key == "row":
                 continue
             if key not in table.columns:
                 raise ValueError(f"unknown-column:{key}")
-            row_cells[key] = str(raw_value) if raw_value is not None else (
-                table.default if default_value is None else default_value
-            )
+            if not isinstance(raw_value, str):
+                raise ValueError(_NULL_VALUE_ERROR)
+            row_cells[key] = raw_value
+            written += 1
+        return written
 
     def _set_cell(self, table: TableData, row_key: str, column_name: str, value: str) -> None:
         if row_key not in table.rows:
@@ -295,6 +378,36 @@ def _normalize_columns(columns: list[str]) -> list[str]:
         if not name:
             raise ValueError("column names must be non-empty strings")
         if name in normalized:
-            raise ValueError(name)
+            raise _coded_error("duplicated-column", name)
         normalized.append(name)
     return normalized
+
+
+_EMPTY_SET_CELLS = "set_cells requires a non-empty updates list or a non-empty matrix"
+_NULL_VALUE_ERROR = "value must be a string; pass an empty string to store a blank cell"
+
+
+def _coded_error(code: str, *parts: str) -> ValueError:
+    return ValueError(f"{code}:{json.dumps(list(parts), ensure_ascii=False)}")
+
+
+def _unique_existing_keys(names: list[str], *, existing: list[str], kind: str) -> list[str]:
+    if not names:
+        label = "rows" if kind == "row" else "columns"
+        raise ValueError(f"{label} must be a non-empty list")
+    empty_message = (
+        "row keys must be non-empty strings"
+        if kind == "row"
+        else "column names must be non-empty strings"
+    )
+    unknown_prefix = "unknown-row" if kind == "row" else "unknown-column"
+    selected: list[str] = []
+    for raw in names:
+        name = raw.strip()
+        if not name:
+            raise ValueError(empty_message)
+        if name not in existing:
+            raise ValueError(f"{unknown_prefix}:{name}")
+        if name not in selected:
+            selected.append(name)
+    return selected
