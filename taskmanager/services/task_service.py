@@ -86,9 +86,7 @@ class TaskService:
             initial_todos=initial_todos,
         )
         return TaskCreated(
-            task_id=task_id,
-            task_path=str(task_file),
-            rough_path=str(rough_file),
+            task_id=task_id
         )
 
     def get_task(self, task_id: str) -> TaskDetail:

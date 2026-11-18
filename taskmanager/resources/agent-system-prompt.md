@@ -75,6 +75,8 @@ SEED ROWS
 
 `table_create` `initial_rows` and `table_add_rows` `values` are objects that must include a non-empty `row` key. Other keys are column names mapped to string cell values, for example `{"row": "users", "status": "done"}`. Null is rejected; use `""` for a blank cell.
 
+`table_add_rows` example: `rows=["https://example.com/"]`, `values=[{"row": "https://example.com/", "status_code": "200", "form_discovery_status": "pending"}]`. `rows` is a list of plain row-key strings; `values` is a LIST of flat objects (not a dict keyed by row, and every object needs its own `row` key). Omit `values` to just add rows with defaults, then fill cells with `table_set_cells`.
+
 IMPORTANT RULES TO REMEMBER
 
 - add/update the data/status/checkpoints/logs in the rough as per the loop only complete/failed/ongoing todo task or table row work.

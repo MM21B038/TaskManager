@@ -1,9 +1,23 @@
 """Table MCP tools."""
 
+from typing import Annotated, Any
+
 from fastmcp import FastMCP
+from pydantic import BeforeValidator
 
 from taskmanager.models import CellUpdate, RowMatrix, SeedRow
 from taskmanager.tools._helpers import get_service, map_errors
+
+
+def _normalize_values(raw: Any) -> Any:
+    """Accept {"row": {col: val}} or a single row object in place of a list of row objects."""
+    if not isinstance(raw, dict):
+        return raw
+    if isinstance(raw.get("row"), str):
+        return [raw]
+    if raw and all(isinstance(v, dict) for v in raw.values()):
+        return [{**cells, "row": key} for key, cells in raw.items()]
+    return raw
 
 
 def register(mcp: FastMCP) -> None:
@@ -65,21 +79,33 @@ def register(mcp: FastMCP) -> None:
     def table_add_rows(
         task_id: str,
         table_id: str,
-        rows: list[str],
+        rows: list[str | SeedRow],
         default_value: str | None = None,
-        values: list[SeedRow] | None = None,
+        values: Annotated[list[SeedRow] | None, BeforeValidator(_normalize_values)] = None,
     ):
         """Add rows to a table, optionally seeding per-row cell values.
 
-        Each values item must include a non-empty row key for a row being added or already
-        present. Other keys are column names mapped to string cell values.
+        rows is a list of row-key strings, e.g. ["https://example.com/"]. To seed cells, pass
+        values as a list of objects, each with a non-empty "row" key plus column-name keys, e.g.
+        [{"row": "https://example.com/", "status_code": "200"}]. Cell values must be strings.
         """
+        row_keys: list[str] = []
+        seeded: list[dict[str, str]] = []
+        for item in rows:
+            if isinstance(item, str):
+                row_keys.append(item)
+                continue
+            data = item.model_dump()
+            row_keys.append(data["row"])
+            if len(data) > 1:
+                seeded.append(data)
+        seeded.extend(row.model_dump() for row in values or [])
         return get_service().table_add_rows(
             task_id,
             table_id,
-            rows,
+            row_keys,
             default_value=default_value,
-            values=[row.model_dump() for row in values] if values else None,
+            values=seeded or None,
         )
 
     @mcp.tool()

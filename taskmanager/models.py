@@ -12,8 +12,6 @@ TaskMode = Literal["todo", "table"]
 
 class TaskCreated(BaseModel):
     task_id: str
-    task_path: str
-    rough_path: str
 
 
 class TaskMetadata(BaseModel):
